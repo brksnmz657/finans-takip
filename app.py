@@ -1,7 +1,5 @@
-
 import streamlit as st
 import pandas as pd
-import plotly.graph_objects as go
 import numpy as np
 
 # --- 1. GİRİŞ VE ŞİFRE KONTROLÜ ---
@@ -33,27 +31,26 @@ if not check_password():
     st.stop()
 
 # --- 2. UYGULAMA İÇERİĞİ ---
-# Şifre doğruysa burası çalışır
-
 st.set_page_config(layout="wide", page_title="Finansal Takip Portalı")
 
-st.title("⚡ Profesyonel Canlı Finansal Takip Portalı")
-st.write("Hoş geldin! Finansal verilerin aşağıda listeleniyor.")
+st.title("📈 Finansal Performans Portalı")
+st.write("Hoş geldin! Güncel verilerin ve performans grafiğin aşağıdadır.")
 
-# Örnek bir veri seti (Buraya kendi verilerini ekleyebilirsin)
-data = {
-    'Varlık': ['Hisse Senedi', 'Altın', 'Döviz', 'Kripto'],
-    'Değer': [15000, 25000, 10000, 5000]
-}
-df = pd.DataFrame(data)
+# İnişli çıkışlı grafik için örnek veri oluşturma
+# Rastgele 30 günlük değerler (inişli çıkışlı)
+veri_sayisi = 30
+chart_data = pd.DataFrame(
+    np.random.randn(veri_sayisi, 1).cumsum() + 100, 
+    columns=['Portföy Değeri ($)']
+)
 
-# Tablo gösterimi
-st.subheader("Varlık Dağılımı")
-st.table(df)
+# Çizgi grafiği gösterimi
+st.subheader("Portföyün Zaman İçindeki Değişimi")
+st.line_chart(chart_data)
 
-# Grafik gösterimi
-fig = go.Figure(data=[go.Pie(labels=df['Varlık'], values=df['Değer'])])
-st.plotly_chart(fig)
+# Veri tablosu gösterimi
+st.subheader("Güncel Veri Detayları")
+st.dataframe(chart_data.style.highlight_max(axis=0))
 
 # Çıkış yapma butonu
 if st.button("Çıkış Yap"):
