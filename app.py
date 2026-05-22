@@ -1,76 +1,77 @@
 import streamlit as st
+import yfinance as yf
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
-import time
 
 st.set_page_config(layout="wide", page_title="Finansal Takip Portalı")
 
-# --- 1. OTURUM VE ŞİFRE ---
+# --- 1. OTURUM ---
+if "password_correct" not in st.session_state: st.session_state.password_correct = False
+
 def check_password():
-    if "password_correct" not in st.session_state: st.session_state.password_correct = False
     if not st.session_state.password_correct:
         st.title("🔒 Giriş Ekranı")
-        user_input = st.text_input("Kullanıcı Adı:", key="username")
-        password_input = st.text_input("Şifre:", type="password", key="password")
+        user = st.text_input("Kullanıcı Adı:", key="u")
+        pwd = st.text_input("Şifre:", type="password", key="p")
         if st.button("Giriş Yap"):
-            if user_input == "admin" and password_input == "1234":
+            if user == "admin" and pwd == "1234":
                 st.session_state.password_correct = True
                 st.rerun()
             else:
-                st.error("Kullanıcı adı veya şifre hatalı!")
+                st.error("Hatalı!")
         return False
     return True
 
 if not check_password(): st.stop()
 
-# --- 2. VERİ HAFIZASI ---
-if "fiyatlar" not in st.session_state: 
-    st.session_state.fiyatlar = [111.5746]
-if "otomatik" not in st.session_state:
-    st.session_state.otomatik = True 
+# --- 2. GERÇEK VERİ ÇEKME (HATA TOLERANSLI) ---
+@st.cache_data(ttl=600) # Veriyi 10 dakikada bir güncelle (API limitini aşmamak için)
+def get_real_data(symbol):
+    try:
+        # Yahoo Finance'ten veri çek
+        df = yf.download(symbol, period="1d", interval="15m", progress=False)
+        if not df.empty:
+            return df['Close']
+    except Exception:
+        return None
+    return None
 
-# Fiyat simülasyonu
-degisim = np.random.uniform(-0.05, 0.05)
-st.session_state.fiyatlar.append(st.session_state.fiyatlar[-1] + degisim)
-if len(st.session_state.fiyatlar) > 50: st.session_state.fiyatlar.pop(0)
+tickers = {
+    "Dolar/TL": "USDTRY=X",
+    "Euro/TL": "EURTRY=X",
+    "Altın (Ons)": "GC=F",
+    "Gümüş (Ons)": "SI=F"
+}
 
 # --- 3. ARAYÜZ ---
-with st.sidebar:
-    st.header("⚙️ Kontrol Paneli")
-    varlik = st.selectbox("Grafikte Görmek İstediğiniz Varlık:", ["Gümüş (Gram)", "Dolar/TL", "Euro/TL", "Altın (Gram)"])
-    st.session_state.otomatik = st.toggle("Otomatik Akış (Canlı Yayın)", value=st.session_state.otomatik)
+st.sidebar.header("⚙️ Kontrol Paneli")
+secilen = st.sidebar.selectbox("Varlık Seçin:", list(tickers.keys()))
+
+st.title(f"📈 {secilen} Güncel Piyasa Verisi")
+
+data = get_real_data(tickers[secilen])
+
+if data is not None:
+    current = float(data.iloc[-1])
+    change = current - float(data.iloc[0])
     
-    st.divider()
-    st.subheader("📊 Son Piyasa Durumu")
-    st.write("Gümüş (Gram): 111.58 TL")
-    st.write("Dolar/TL: 45.74 TL")
-    st.write("Euro/TL: 53.05 TL")
-    st.write("Altın (Gram): 6640.05 TL")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Son Fiyat", f"{current:.4f}")
+    col2.metric("Günlük Değişim", f"{change:+.4f}")
+    col3.metric("Yüzde", f"{(change/float(data.iloc[0]))*100:.3f}%")
 
-st.title(f"📈 {varlik} Raporu")
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        y=data.values, mode='lines', 
+        line=dict(color='#00F2FF', width=3, shape='spline', smoothing=1.3)
+    ))
+    fig.update_layout(template="plotly_dark", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+    st.plotly_chart(fig, use_container_width=True)
+    st.success("Veriler Yahoo Finance üzerinden gerçek zamanlı çekilmiştir.")
+else:
+    st.error("Veri sunucudan alınamadı. Lütfen daha sonra tekrar deneyin.")
 
-# Metrikler
-col1, col2, col3 = st.columns(3)
-col1.metric("Güncel Fiyat", f"{st.session_state.fiyatlar[-1]:.4f} TL", f"{degisim:+.4f}")
-col2.metric("Anlık Değişim", f"{degisim:+.4f} TL")
-col3.metric("Yüzdesel Değişim", f"{(degisim/st.session_state.fiyatlar[-1])*100:.3f}%")
-
-# Grafik
-fig = go.Figure()
-fig.add_trace(go.Scatter(y=st.session_state.fiyatlar, mode='lines', line=dict(color='#00F2FF', width=3)))
-fig.update_layout(yaxis=dict(range=[110, 113]), template="plotly_dark", margin=dict(l=20, r=20, t=20, b=20))
-st.plotly_chart(fig, use_container_width=True)
-
-# --- 4. SAYFA ALTI (FOOTER) ---
+# --- 4. CV İÇİN FOOTER ---
 st.divider()
 st.markdown("### 👤 Hakkımda")
-st.write("🎓 **Eğitim:**")
-st.write("- **ESOGÜ:** Siyaset Bilimi ve Kamu Yönetimi")
-st.write("- **AÖF:** Yönetim Bilişim Sistemleri (YBS)")
-st.write("📧 **E-posta:** sonmezburak2007@gmail.com")
-st.write("🔗 **LinkedIn:** [Profiline Git](https://www.linkedin.com/in/buraksönmez/)")
-
-if st.session_state.otomatik:
-    time.sleep(1)
-    st.rerun()
+st.write("Bu uygulama, Python, Streamlit, Pandas ve yfinance API'si kullanılarak geliştirilmiş gerçek zamanlı bir finansal takip portalıdır.")
