@@ -1,11 +1,10 @@
+
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime
-import requests
 import numpy as np
 
-# --- GİRİŞ VE ŞİFRE KONTROLÜ ---
+# --- 1. GİRİŞ VE ŞİFRE KONTROLÜ ---
 def check_password():
     """Basit şifre koruması"""
     if "password_correct" not in st.session_state:
@@ -20,8 +19,8 @@ def check_password():
         password_input = st.text_input("Şifre:", type="password", key="password")
         
         if st.button("Giriş Yap"):
-            # Buraya kendi kullanıcı adı ve şifreni yaz
-            if user_input == "burak" and password_input == "12345":
+            # Kullanıcı adı ve şifre kontrolü
+            if user_input == "admin" and password_input == "1234":
                 st.session_state.password_correct = True
                 st.rerun()
             else:
@@ -33,15 +32,30 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- ŞİFRE DOĞRUYSA AŞAĞIDAKİ TÜM UYGULAMA ÇALIŞIR ---
+# --- 2. UYGULAMA İÇERİĞİ ---
+# Şifre doğruysa burası çalışır
 
-# Sayfa Genişlik Ayarı
-st.set_page_config(layout="wide", page_title="Canlı Finansal Takip Portalı")
-
-# [KODUN GERİ KALANI BURAYA GELECEK]
-# (Daha önce paylaştığım '5. CANLI GRAFİK VE METRİK MOTORU' ve diğer kısımları buraya yapıştır)
-
-# --- (Kısaltılmış Gösterim - Tüm kodunu yukarıdaki check_password bloğunun altına ekle) ---
+st.set_page_config(layout="wide", page_title="Finansal Takip Portalı")
 
 st.title("⚡ Profesyonel Canlı Finansal Takip Portalı")
-# ... (Buraya diğer tüm fonksiyonlarını ve ana gövdeyi ekle)
+st.write("Hoş geldin! Finansal verilerin aşağıda listeleniyor.")
+
+# Örnek bir veri seti (Buraya kendi verilerini ekleyebilirsin)
+data = {
+    'Varlık': ['Hisse Senedi', 'Altın', 'Döviz', 'Kripto'],
+    'Değer': [15000, 25000, 10000, 5000]
+}
+df = pd.DataFrame(data)
+
+# Tablo gösterimi
+st.subheader("Varlık Dağılımı")
+st.table(df)
+
+# Grafik gösterimi
+fig = go.Figure(data=[go.Pie(labels=df['Varlık'], values=df['Değer'])])
+st.plotly_chart(fig)
+
+# Çıkış yapma butonu
+if st.button("Çıkış Yap"):
+    st.session_state.password_correct = False
+    st.rerun()
