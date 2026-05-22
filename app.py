@@ -65,12 +65,11 @@ st.plotly_chart(fig, use_container_width=True)
 # --- 4. SAYFA ALTI (FOOTER) ---
 st.divider()
 st.markdown("### 👤 Hakkımda")
-col_a, col_b = st.columns(2)
-with col_a:
-    st.write("**Eğitim:** ESOGÜ / AÖF - Yönetim Bilişim Sistemleri (YBS)")
-    st.write("📧 **E-posta:** sonmezburak2007@gmail.com")
-with col_b:
-    st.write("🔗 **LinkedIn:** [Profiline Git](https://www.linkedin.com/in/buraksönmez/)")
+st.write("🎓 **Eğitim:**")
+st.write("- **ESOGÜ:** Siyaset Bilimi ve Kamu Yönetimi")
+st.write("- **AÖF:** Yönetim Bilişim Sistemleri (YBS)")
+st.write("📧 **E-posta:** sonmezburak2007@gmail.com")
+st.write("🔗 **LinkedIn:** [Profiline Git](https://www.linkedin.com/in/buraksönmez/)")
 
 if st.session_state.otomatik:
     time.sleep(1)
