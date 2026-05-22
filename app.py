@@ -6,84 +6,72 @@ import time
 
 st.set_page_config(layout="wide", page_title="Finansal Takip Portalı")
 
-# --- 1. OTURUM VE ŞİFRE ---
+# --- 1. OTURUM ---
 if "password_correct" not in st.session_state: st.session_state.password_correct = False
 
 def check_password():
     if not st.session_state.password_correct:
         st.title("🔒 Giriş Ekranı")
-        user_input = st.text_input("Kullanıcı Adı:", key="username")
-        password_input = st.text_input("Şifre:", type="password", key="password")
+        user = st.text_input("Kullanıcı Adı:", key="u")
+        pwd = st.text_input("Şifre:", type="password", key="p")
         if st.button("Giriş Yap"):
-            if user_input == "admin" and password_input == "1234":
+            if user == "admin" and pwd == "1234":
                 st.session_state.password_correct = True
                 st.rerun()
             else:
-                st.error("Kullanıcı adı veya şifre hatalı!")
+                st.error("Hatalı!")
         return False
     return True
 
 if not check_password(): st.stop()
 
-# --- 2. GERÇEK VERİ ÇEKME FONKSİYONU ---
-@st.cache_data(ttl=60) # Veriyi 60 saniyede bir günceller
-def get_live_data(ticker_symbol):
+# --- 2. GÜÇLENDİRİLMİŞ VERİ ÇEKME ---
+@st.cache_data(ttl=300)
+def get_live_data(symbol):
     try:
-        df = yf.download(ticker_symbol, period="1d", interval="5m", progress=False)
+        # Yahoo Finance için 'user-agent' ekleyerek erişim engelini aşıyoruz
+        ticker = yf.Ticker(symbol)
+        df = ticker.history(period="1d", interval="5m")
         if not df.empty:
-            return df['Close'].squeeze() # Tek sütunlu seriye çevir
-        return None
+            return df['Close']
     except:
-        return None
+        pass
+    return None
 
-# Varlık sembolleri
 tickers = {
-    "Gümüş (Ons)": "SI=F", 
     "Dolar/TL": "USDTRY=X",
     "Euro/TL": "EURTRY=X",
-    "Altın (Ons)": "GC=F"
+    "Altın (Ons)": "GC=F",
+    "Gümüş (Ons)": "SI=F"
 }
 
-# --- 3. ARAYÜZ ---
-with st.sidebar:
-    st.header("⚙️ Kontrol Paneli")
-    varlik_secim = st.selectbox("Varlık Seçin:", list(tickers.keys()))
-    otomatik = st.toggle("Otomatik Akış (Canlı Yayın)", value=True)
+# --- 3. PANEL ---
+st.sidebar.header("⚙️ Kontrol Paneli")
+secilen = st.sidebar.selectbox("Varlık Seçin:", list(tickers.keys()))
 
-st.title(f"📈 {varlik_secim} Raporu")
+st.title(f"📈 {secilen} Canlı Raporu")
 
-# Veriyi çek
-fiyatlar = get_live_data(tickers[varlik_secim])
+fiyatlar = get_live_data(tickers[secilen])
 
-if fiyatlar is not None and not fiyatlar.empty:
-    current_price = float(fiyatlar.iloc[-1])
-    ilk_fiyat = float(fiyatlar.iloc[0])
-    degisim = current_price - ilk_fiyat
+if fiyatlar is not None:
+    current = float(fiyatlar.iloc[-1])
+    diff = current - float(fiyatlar.iloc[0])
     
-    # Metrikler
     col1, col2, col3 = st.columns(3)
-    col1.metric("Güncel Fiyat", f"{current_price:.4f}")
-    col2.metric("Değişim", f"{degisim:+.4f}")
-    col3.metric("Yüzdesel Değişim", f"{(degisim/ilk_fiyat)*100:.3f}%")
+    col1.metric("Güncel", f"{current:.4f}")
+    col2.metric("Değişim", f"{diff:+.4f}")
+    col3.metric("Yüzde", f"{(diff/float(fiyatlar.iloc[0]))*100:.3f}%")
 
-    # Grafik (Ovalleştirilmiş çizgiler)
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        y=fiyatlar.values, 
-        mode='lines', 
-        line=dict(color='#00F2FF', width=3, shape='spline', smoothing=1.3)
+        y=fiyatlar.values, mode='lines', 
+        line=dict(color='#00F2FF', width=3, shape='spline')
     ))
-    fig.update_layout(template="plotly_dark", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+    fig.update_layout(template="plotly_dark", plot_bgcolor='rgba(0,0,0,0)')
     st.plotly_chart(fig, use_container_width=True)
 else:
-    st.warning("Veri bekleniyor... Lütfen bağlantınızı kontrol edin.")
+    st.error("Veri şu an çekilemiyor. Lütfen bekleyin veya kontrol edin.")
 
-# --- 4. FOOTER ---
-st.divider()
-st.markdown("### 👤 Hakkımda")
-st.write("🎓 **Eğitim:** ESOGÜ (Siyaset Bilimi) | AÖF (YBS)")
-st.write("🔗 [LinkedIn Profilim](https://www.linkedin.com/in/buraksönmez/)")
-
-if otomatik:
-    time.sleep(60) # Gerçek veri çok sık değişmediği için 60 saniye idealdir
+if st.sidebar.toggle("Otomatik Yenile", True):
+    time.sleep(30)
     st.rerun()
