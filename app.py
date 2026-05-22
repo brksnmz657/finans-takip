@@ -1,65 +1,60 @@
 import streamlit as st
-import yfinance as yf
 import pandas as pd
+import numpy as np
 import plotly.graph_objects as go
 import time
 
 st.set_page_config(layout="wide", page_title="Finansal Takip Portalı")
 
-# --- 1. GÜNCEL PİYASA DEĞERLERİ (Yedekleme) ---
-# Eğer API'den veri çekemezse bu değerleri kullanır
-DEFAULT_PRICES = {
-    "Dolar/TL": 32.50,
-    "Euro/TL": 35.20,
-    "Altın (Gram)": 2500.00,
-    "Gümüş (Gram)": 30.50
-}
-
-# --- 2. GİRİŞ EKRANI ---
-if "password_correct" not in st.session_state: st.session_state.password_correct = False
-if not st.session_state.password_correct:
+# --- 1. OTURUM VE GİRİŞ ---
+if "login" not in st.session_state: st.session_state.login = False
+if not st.session_state.login:
     st.title("🔒 Giriş Ekranı")
     if st.text_input("Şifre:", type="password") == "1234":
-        st.session_state.password_correct = True
+        st.session_state.login = True
         st.rerun()
     st.stop()
 
-# --- 3. VERİ ÇEKME (EN SAĞLAM YÖNTEM) ---
-@st.cache_data(ttl=600)
-def get_live_price(varlik_name):
-    # Yahoo sembolleri
-    symbols = {"Dolar/TL": "USDTRY=X", "Euro/TL": "EURTRY=X", "Altın (Gram)": "GC=F", "Gümüş (Gram)": "SI=F"}
-    
-    try:
-        ticker = yf.Ticker(symbols[varlik_name])
-        hist = ticker.history(period="1d")
-        price = float(hist['Close'].iloc[-1])
-        
-        # Grama çevrim (Ons ise)
-        if "Gram" in varlik_name:
-            usd_try = float(yf.Ticker("USDTRY=X").history(period="1d")['Close'].iloc[-1])
-            price = (price / 31.1035) * usd_try
-            
-        return round(price, 2)
-    except:
-        return DEFAULT_PRICES.get(varlik_name, 1.0)
+# --- 2. HATA VERMEYEN DİNAMİK HAFIZA ---
+if "history" not in st.session_state:
+    st.session_state.history = {
+        "Dolar/TL": [45.74], "Euro/TL": [53.05], 
+        "Altın (Gram)": [6640.05], "Gümüş (Gram)": [111.58]
+    }
 
-# --- 4. ARAYÜZ ---
-varlik = st.sidebar.selectbox("Varlık Seçin:", list(DEFAULT_PRICES.keys()))
-fiyat = get_live_price(varlik)
+# --- 3. ARAYÜZ ---
+with st.sidebar:
+    st.header("⚙️ Kontrol Paneli")
+    varlik = st.selectbox("Varlık Seçin:", list(st.session_state.history.keys()))
+    st.divider()
+    st.info("Sistem canlı simülasyon modunda çalışmaktadır.")
 
+# --- 4. AKILLI SİMÜLASYON ---
+# Fiyatı sadece %0.1 civarında değiştir (daha gerçekçi)
+last_price = st.session_state.history[varlik][-1]
+change = last_price * np.random.uniform(-0.001, 0.001)
+new_price = last_price + change
+
+st.session_state.history[varlik].append(new_price)
+if len(st.session_state.history[varlik]) > 50: st.session_state.history[varlik].pop(0)
+
+# --- 5. GÖRSELLEŞTİRME ---
 st.title(f"📈 {varlik} Canlı Takip")
-st.metric(label="Güncel Fiyat (TL)", value=f"{fiyat:,.2f} TL")
+col1, col2 = st.columns([1, 3])
+col1.metric("Anlık Fiyat", f"{new_price:.4f} TL", f"{change:+.4f} TL")
 
-# Grafik (Spline)
-fig = go.Figure(go.Scatter(y=[fiyat*0.99, fiyat, fiyat*1.01], mode='lines', line=dict(shape='spline', color='#00F2FF', width=4)))
+fig = go.Figure(go.Scatter(
+    y=st.session_state.history[varlik], 
+    mode='lines',
+    line=dict(shape='spline', color='#00F2FF', width=4)
+))
 fig.update_layout(template="plotly_dark", plot_bgcolor='rgba(0,0,0,0)')
 st.plotly_chart(fig, use_container_width=True)
 
-# --- 5. FOOTER ---
+# Footer
 st.divider()
 st.write("Eğitim: ESOGÜ | YBS | [LinkedIn](https://www.linkedin.com/in/buraksönmez/)")
 
-if st.sidebar.toggle("Otomatik Yenile", True):
-    time.sleep(30)
-    st.rerun()
+# --- 6. OTOMATİK AKIŞ ---
+time.sleep(1) # Saniyede bir güncelle
+st.rerun()
