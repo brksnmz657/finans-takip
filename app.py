@@ -30,7 +30,6 @@ if not check_password(): st.stop()
 @st.cache_data(ttl=60)
 def get_data(ticker):
     try:
-        # download metodu daha kararlı çalışır
         df = yf.download(ticker, period="1d", interval="5m", progress=False)
         if not df.empty:
             return df['Close']
@@ -54,14 +53,17 @@ otomatik = st.sidebar.toggle("Otomatik Akış", value=True)
 st.title(f"📈 {varlik} Canlı Raporu")
 
 fiyatlar = get_data(tickers[varlik])
-if not fiyatlar.empty and fiyatlar.iloc[-1] != 0:
-    current_price = fiyatlar.iloc[-1]
-    degisim = current_price - fiyatlar.iloc[0]
+
+# Hata almamak için .item() ile değeri saf sayıya dönüştürdük
+if not fiyatlar.empty and fiyatlar.iloc[-1].item() != 0:
+    current_price = fiyatlar.iloc[-1].item()
+    ilk_fiyat = fiyatlar.iloc[0].item()
+    degisim = current_price - ilk_fiyat
     
     col1, col2, col3 = st.columns(3)
     col1.metric("Güncel Fiyat", f"{current_price:.4f}")
     col2.metric("Günlük Değişim", f"{degisim:+.4f}")
-    col3.metric("Yüzdesel Değişim", f"{(degisim/fiyatlar.iloc[0])*100:.3f}%")
+    col3.metric("Yüzdesel Değişim", f"{(degisim/ilk_fiyat)*100:.3f}%")
 
     # Ovalleştirilmiş (spline) grafik
     fig = go.Figure()
@@ -78,7 +80,7 @@ if not fiyatlar.empty and fiyatlar.iloc[-1] != 0:
     )
     st.plotly_chart(fig, use_container_width=True)
 else:
-    st.warning("Şu an veri alınamıyor, lütfen bağlantıyı kontrol edin veya başka bir varlık seçin.")
+    st.warning("Veri çekilemiyor. Lütfen internet bağlantınızı veya varlık seçimini kontrol edin.")
 
 # --- 4. FOOTER ---
 st.divider()
