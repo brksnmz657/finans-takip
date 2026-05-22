@@ -6,23 +6,32 @@ import time
 
 st.set_page_config(layout="wide", page_title="Finansal Takip Portalı")
 
-# --- 1. OTURUM VE ŞİFRE ---
-def check_password():
-    if "password_correct" not in st.session_state: st.session_state.password_correct = False
-    if not st.session_state.password_correct:
-        st.title("🔒 Giriş Ekranı")
-        user_input = st.text_input("Kullanıcı Adı:", key="username")
-        password_input = st.text_input("Şifre:", type="password", key="password")
+# --- 1. OTURUM VE GİRİŞ EKRANI (LAMBA MANTIĞI) ---
+if "password_correct" not in st.session_state:
+    st.session_state.password_correct = False
+
+def login_screen():
+    st.title("💡 Giriş Lambası")
+    st.write("Giriş formunu görmek için lambayı aç!")
+    
+    # Lamba anahtarı (Görseldeki mantık)
+    lamba_acik = st.toggle("Lambayı Aç/Kapat")
+    
+    if lamba_acik:
+        user_input = st.text_input("Kullanıcı Adı:")
+        password_input = st.text_input("Şifre:", type="password")
+        
         if st.button("Giriş Yap"):
-            if user_input == "admin" and password_input == "1234":
+            # Güncellenmiş kullanıcı adı ve şifre kontrolü
+            if user_input == "admin" and password_input == "12345":
                 st.session_state.password_correct = True
                 st.rerun()
             else:
                 st.error("Kullanıcı adı veya şifre hatalı!")
-        return False
-    return True
 
-if not check_password(): st.stop()
+if not st.session_state.password_correct:
+    login_screen()
+    st.stop()
 
 # --- 2. VERİ HAFIZASI ---
 if "fiyatlar" not in st.session_state: 
@@ -35,7 +44,7 @@ degisim = np.random.uniform(-0.05, 0.05)
 st.session_state.fiyatlar.append(st.session_state.fiyatlar[-1] + degisim)
 if len(st.session_state.fiyatlar) > 50: st.session_state.fiyatlar.pop(0)
 
-# --- 3. ARAYÜZ ---
+# --- 3. ANA UYGULAMA PANELİ ---
 with st.sidebar:
     st.header("⚙️ Kontrol Paneli")
     varlik = st.selectbox("Grafikte Görmek İstediğiniz Varlık:", ["Gümüş (Gram)", "Dolar/TL", "Euro/TL", "Altın (Gram)"])
