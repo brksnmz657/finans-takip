@@ -27,10 +27,17 @@ def check_password():
 if not check_password(): st.stop()
 
 # --- 2. VERİ ÇEKME FONKSİYONU ---
-@st.cache_data(ttl=60) # Veriyi 60 saniyede bir yeniler
+@st.cache_data(ttl=60)
 def get_data(ticker):
-    data = yf.Ticker(ticker).history(period="1d", interval="1m")
-    return data['Close']
+    try:
+        # download metodu daha kararlı çalışır
+        df = yf.download(ticker, period="1d", interval="5m", progress=False)
+        if not df.empty:
+            return df['Close']
+        else:
+            return pd.Series([0.0])
+    except Exception:
+        return pd.Series([0.0])
 
 tickers = {
     "Dolar/TL": "USDTRY=X",
@@ -47,20 +54,31 @@ otomatik = st.sidebar.toggle("Otomatik Akış", value=True)
 st.title(f"📈 {varlik} Canlı Raporu")
 
 fiyatlar = get_data(tickers[varlik])
-current_price = fiyatlar.iloc[-1]
-degisim = current_price - fiyatlar.iloc[0]
+if not fiyatlar.empty and fiyatlar.iloc[-1] != 0:
+    current_price = fiyatlar.iloc[-1]
+    degisim = current_price - fiyatlar.iloc[0]
+    
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Güncel Fiyat", f"{current_price:.4f}")
+    col2.metric("Günlük Değişim", f"{degisim:+.4f}")
+    col3.metric("Yüzdesel Değişim", f"{(degisim/fiyatlar.iloc[0])*100:.3f}%")
 
-# Metrikler
-col1, col2, col3 = st.columns(3)
-col1.metric("Güncel Fiyat", f"{current_price:.4f}")
-col2.metric("Günlük Değişim", f"{degisim:+.4f}")
-col3.metric("Yüzdesel Değişim", f"{(degisim/fiyatlar.iloc[0])*100:.3f}%")
-
-# Grafik
-fig = go.Figure()
-fig.add_trace(go.Scatter(y=fiyatlar, mode='lines', line=dict(color='#00F2FF', width=3)))
-fig.update_layout(template="plotly_dark", margin=dict(l=20, r=20, t=20, b=20))
-st.plotly_chart(fig, use_container_width=True)
+    # Ovalleştirilmiş (spline) grafik
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        y=fiyatlar, 
+        mode='lines', 
+        line=dict(color='#00F2FF', width=3, shape='spline', smoothing=1.3)
+    ))
+    fig.update_layout(
+        template="plotly_dark", 
+        margin=dict(l=20, r=20, t=20, b=20),
+        plot_bgcolor='rgba(0,0,0,0)', 
+        paper_bgcolor='rgba(0,0,0,0)'
+    )
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.warning("Şu an veri alınamıyor, lütfen bağlantıyı kontrol edin veya başka bir varlık seçin.")
 
 # --- 4. FOOTER ---
 st.divider()
@@ -75,5 +93,5 @@ with col_b:
     st.write("🔗 **LinkedIn:** [Profiline Git](https://www.linkedin.com/in/buraksönmez/)")
 
 if otomatik:
-    time.sleep(5) # Veri çok hızlı değişmediği için 5 sn idealdir
+    time.sleep(60) # Dakikada bir yenileme
     st.rerun()
