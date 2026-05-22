@@ -30,12 +30,16 @@ if not check_password(): st.stop()
 @st.cache_data(ttl=60)
 def get_data(ticker):
     try:
+        # Veriyi çek
         df = yf.download(ticker, period="1d", interval="5m", progress=False)
-        if not df.empty:
-            return df['Close']
-        else:
-            return pd.Series([0.0])
-    except Exception:
+        # Sütunları düzelt (Bazı durumlarda multi-index döner)
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        
+        if not df.empty and 'Close' in df.columns:
+            return df['Close'].astype(float)
+        return pd.Series([0.0])
+    except:
         return pd.Series([0.0])
 
 tickers = {
@@ -54,10 +58,10 @@ st.title(f"📈 {varlik} Canlı Raporu")
 
 fiyatlar = get_data(tickers[varlik])
 
-# Hata almamak için .item() ile değeri saf sayıya dönüştürdük
-if not fiyatlar.empty and fiyatlar.iloc[-1].item() != 0:
-    current_price = fiyatlar.iloc[-1].item()
-    ilk_fiyat = fiyatlar.iloc[0].item()
+# Hata kontrolü
+if not fiyatlar.empty and fiyatlar.iloc[-1] > 0:
+    current_price = float(fiyatlar.iloc[-1])
+    ilk_fiyat = float(fiyatlar.iloc[0])
     degisim = current_price - ilk_fiyat
     
     col1, col2, col3 = st.columns(3)
@@ -65,35 +69,27 @@ if not fiyatlar.empty and fiyatlar.iloc[-1].item() != 0:
     col2.metric("Günlük Değişim", f"{degisim:+.4f}")
     col3.metric("Yüzdesel Değişim", f"{(degisim/ilk_fiyat)*100:.3f}%")
 
-    # Ovalleştirilmiş (spline) grafik
+    # Ovalleştirilmiş grafik
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        y=fiyatlar, 
+        y=fiyatlar.values, 
         mode='lines', 
         line=dict(color='#00F2FF', width=3, shape='spline', smoothing=1.3)
     ))
     fig.update_layout(
         template="plotly_dark", 
-        margin=dict(l=20, r=20, t=20, b=20),
         plot_bgcolor='rgba(0,0,0,0)', 
         paper_bgcolor='rgba(0,0,0,0)'
     )
     st.plotly_chart(fig, use_container_width=True)
 else:
-    st.warning("Veri çekilemiyor. Lütfen internet bağlantınızı veya varlık seçimini kontrol edin.")
+    st.error("Veri çekilemedi. Yahoo Finance verisi o anki sorguda boş döndü.")
 
 # --- 4. FOOTER ---
 st.divider()
 st.markdown("### 👤 Hakkımda")
-col_a, col_b = st.columns(2)
-with col_a:
-    st.write("🎓 **Eğitim:**")
-    st.write("- **ESOGÜ:** Siyaset Bilimi ve Kamu Yönetimi")
-    st.write("- **AÖF:** Yönetim Bilişim Sistemleri (YBS)")
-with col_b:
-    st.write("📧 **E-posta:** sonmezburak2007@gmail.com")
-    st.write("🔗 **LinkedIn:** [Profiline Git](https://www.linkedin.com/in/buraksönmez/)")
+st.write("Eğitim: ESOGÜ | YBS | E-posta: sonmezburak2007@gmail.com")
 
 if otomatik:
-    time.sleep(60) # Dakikada bir yenileme
+    time.sleep(60)
     st.rerun()
