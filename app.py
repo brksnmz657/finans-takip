@@ -4,20 +4,13 @@ import numpy as np
 
 # --- 1. GİRİŞ VE ŞİFRE KONTROLÜ ---
 def check_password():
-    """Basit şifre koruması"""
     if "password_correct" not in st.session_state:
         st.session_state.password_correct = False
-
     if not st.session_state.password_correct:
         st.title("🔒 Giriş Ekranı")
-        st.markdown("Bu finansal takip portalını görüntülemek için lütfen şifrenizi girin.")
-        
-        # Giriş Bilgileri
         user_input = st.text_input("Kullanıcı Adı:", key="username")
         password_input = st.text_input("Şifre:", type="password", key="password")
-        
         if st.button("Giriş Yap"):
-            # Kullanıcı adı ve şifre kontrolü
             if user_input == "admin" and password_input == "1234":
                 st.session_state.password_correct = True
                 st.rerun()
@@ -26,7 +19,6 @@ def check_password():
         return False
     return True
 
-# Şifre kontrolünü en başa koyuyoruz
 if not check_password():
     st.stop()
 
@@ -34,25 +26,32 @@ if not check_password():
 st.set_page_config(layout="wide", page_title="Finansal Takip Portalı")
 
 st.title("📈 Finansal Performans Portalı")
-st.write("Hoş geldin! Güncel verilerin ve performans grafiğin aşağıdadır.")
 
-# İnişli çıkışlı grafik için örnek veri oluşturma
-# Rastgele 30 günlük değerler (inişli çıkışlı)
+# İnişli çıkışlı veri üretimi
+np.random.seed(42)
 veri_sayisi = 30
-chart_data = pd.DataFrame(
-    np.random.randn(veri_sayisi, 1).cumsum() + 100, 
-    columns=['Portföy Değeri ($)']
-)
+degerler = 1000 + np.random.randn(veri_sayisi, 1).cumsum() * 50
+df = pd.DataFrame(degerler, columns=['Portföy Değeri ($)'])
 
-# Çizgi grafiği gösterimi
-st.subheader("Portföyün Zaman İçindeki Değişimi")
-st.line_chart(chart_data)
+# --- ÖZET KARTLARI (KPI) ---
+col1, col2, col3 = st.columns(3)
 
-# Veri tablosu gösterimi
-st.subheader("Güncel Veri Detayları")
-st.dataframe(chart_data.style.highlight_max(axis=0))
+son_deger = df.iloc[-1, 0]
+ilk_deger = df.iloc[0, 0]
+kar_zarar = son_deger - ilk_deger
+yuzde_degisim = (kar_zarar / ilk_deger) * 100
 
-# Çıkış yapma butonu
+col1.metric("Güncel Portföy Değeri", f"${son_deger:,.2f}")
+col2.metric("Toplam Kâr/Zarar", f"${kar_zarar:,.2f}", f"{yuzde_degisim:,.2f}%")
+col3.metric("Günlük Değişim", "+$45.20", "1.2%")
+
+# Grafik ve Detay
+st.subheader("Performans Grafiği")
+st.line_chart(df)
+
+st.subheader("Veri Detayları")
+st.dataframe(df.style.format("${:,.2f}"))
+
 if st.button("Çıkış Yap"):
     st.session_state.password_correct = False
     st.rerun()
