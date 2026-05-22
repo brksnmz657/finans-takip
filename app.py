@@ -17,13 +17,18 @@ def check_password():
 
 if not check_password(): st.stop()
 
-# --- 2. FİYAT SİMÜLASYONU ---
-if "fiyat" not in st.session_state:
-    st.session_state.fiyat = 111.5746
+# --- 2. VERİ HAFIZASI ---
+if "fiyatlar" not in st.session_state:
+    st.session_state.fiyatlar = [111.5746] # Başlangıç fiyatı
 
-# Fiyatı rastgele ufak bir miktar değiştir
+# Rastgele değişim
 degisim = np.random.uniform(-0.05, 0.05)
-st.session_state.fiyat += degisim
+yeni_fiyat = st.session_state.fiyatlar[-1] + degisim
+st.session_state.fiyatlar.append(yeni_fiyat)
+
+# Hafıza dolmasın diye son 50 veriyi tutalım
+if len(st.session_state.fiyatlar) > 50:
+    st.session_state.fiyatlar.pop(0)
 
 # --- 3. ARAYÜZ ---
 st.set_page_config(layout="wide")
@@ -35,16 +40,16 @@ with st.sidebar:
 
 st.title(f"🥈 {varlik} Raporu")
 
-# Metrikleri dinamik yapalım
+# Metrikler
 col1, col2, col3 = st.columns(3)
-col1.metric("Güncel Fiyat", f"{st.session_state.fiyat:.4f} TL", f"{degisim:+.4f}")
+col1.metric("Güncel Fiyat", f"{yeni_fiyat:.4f} TL", f"{degisim:+.4f}")
 col2.metric("Anlık Değişim", f"{degisim:+.4f} TL")
-col3.metric("Yüzdesel Değişim", f"{(degisim/st.session_state.fiyat)*100:.3f}%")
+col3.metric("Yüzdesel Değişim", f"{(degisim/yeni_fiyat)*100:.3f}%")
 
-# Grafik
-chart_data = pd.DataFrame([st.session_state.fiyat], columns=['Fiyat'])
-st.line_chart(chart_data)
+# Grafik: Listeyi DataFrame'e çevirip çizdiriyoruz
+df = pd.DataFrame(st.session_state.fiyatlar, columns=['Fiyat'])
+st.line_chart(df)
 
 if otomatik:
-    time.sleep(2) # 2 saniye bekle
-    st.rerun() # Sayfayı otomatik yenile
+    time.sleep(1) # Hızını buradan ayarlayabilirsin (1 saniye)
+    st.rerun()
