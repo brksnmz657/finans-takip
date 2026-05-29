@@ -2,54 +2,98 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import time
 
-# 1. PROFESYONEL AYARLAR
-st.set_page_config(page_title="Finansal Karar Destek Sistemi", layout="wide")
+# Sayfa ayarları
+st.set_page_config(layout="wide", page_title="Finansal Takip Portalı")
 
-st.markdown("""
-    <style>
-    .stApp { background-color: #0e1117; }
-    div[data-testid="stMetric"] { background-color: #1c222b; padding: 15px; border-radius: 10px; border: 1px solid #333; }
-    </style>
-    """, unsafe_allow_html=True)
+# --- 1. OTURUM VE ŞİFRE ---
+if "login" not in st.session_state: st.session_state.login = False
 
-# 2. VERİ YÖNETİMİ (Modüler yapı için session_state)
+def check_password():
+    if not st.session_state.login:
+        st.title("🔒 Giriş Ekranı")
+        user = st.text_input("Kullanıcı Adı:", key="u")
+        pwd = st.text_input("Şifre:", type="password", key="p")
+        if st.button("Giriş Yap"):
+            if user == "admin" and pwd == "1234":
+                st.session_state.login = True
+                st.rerun()
+            else:
+                st.error("Kullanıcı adı veya şifre hatalı!")
+        return False
+    return True
+
+if not check_password(): st.stop()
+
+# --- 2. VERİ HAFIZASI ---
 if "history" not in st.session_state:
-    st.session_state.history = {"Gümüş (Gram)": [111.58 + np.random.uniform(-1, 1) for _ in range(50)]}
+    st.session_state.history = {
+        "Dolar/TL": [45.74], 
+        "Euro/TL": [53.05], 
+        "Altın (Gram)": [6640.05], 
+        "Gümüş (Gram)": [111.58]
+    }
 
-varlik = "Gümüş (Gram)"
-fiyatlar = st.session_state.history[varlik]
-df = pd.DataFrame(fiyatlar, columns=['Price'])
+# --- 3. ARAYÜZ ---
+with st.sidebar:
+    st.header("⚙️ Kontrol Paneli")
+    varlik = st.selectbox("Grafikte Görmek İstediğiniz Varlık:", list(st.session_state.history.keys()))
+    st.divider()
+    st.info("Sistem gerçek zamanlı simülasyon modunda çalışmaktadır.")
 
-# 3. TEKNİK ANALİZ HESAPLAMALARI
-df['SMA_5'] = df['Price'].rolling(window=5).mean() # 5 günlük hareketli ortalama (Trend)
-df['Fark'] = df['Price'].diff() # Günlük değişim
+# --- 4. SİMÜLASYON ALGORİTMASI ---
+last_price = st.session_state.history[varlik][-1]
+# %0.1 civarında rastgele değişim
+change = last_price * np.random.uniform(-0.001, 0.001)
+new_price = last_price + change
+st.session_state.history[varlik].append(new_price)
 
-# 4. ARAYÜZ (KPI METRİKLERİ)
-col1, col2, col3 = st.columns(3)
-with col1:
-    st.metric("Anlık Fiyat", f"{df['Price'].iloc[-1]:.2f} TL", f"{df['Fark'].iloc[-1]:+.2f}")
-with col2:
-    st.metric("Trend (SMA 5)", f"{df['SMA_5'].iloc[-1]:.2f} TL")
-with col3:
-    st.metric("Volatilite", "Düşük" if df['Price'].std() < 1 else "Yüksek")
+# Hafızayı 50 kayıtla sınırla
+if len(st.session_state.history[varlik]) > 50: st.session_state.history[varlik].pop(0)
 
-# 5. PROFESYONEL GRAFİK
-fig = go.Figure()
-fig.add_trace(go.Scatter(y=df['Price'], name='Fiyat', line=dict(color='#00F2FF', width=3)))
-fig.add_trace(go.Scatter(y=df['SMA_5'], name='Trend (SMA 5)', line=dict(color='#FFD700', width=2, dash='dot')))
+# --- 5. ANA EKRAN VE GRAFİK ---
+st.title(f"📈 {varlik} Canlı Takip")
 
+col1, col2 = st.columns([1, 4])
+col1.metric("Anlık Fiyat", f"{new_price:.4f} TL", f"{change:+.4f} TL")
+
+fig = go.Figure(go.Scatter(
+    y=st.session_state.history[varlik], 
+    mode='lines',
+    line=dict(shape='spline', color='#00F2FF', width=4)
+))
 fig.update_layout(
-    template="plotly_dark",
-    plot_bgcolor='rgba(0,0,0,0)',
+    template="plotly_dark", 
+    plot_bgcolor='rgba(0,0,0,0)', 
     paper_bgcolor='rgba(0,0,0,0)',
-    hovermode="x unified",
-    margin=dict(l=20, r=20, t=30, b=20)
+    margin=dict(l=20, r=20, t=20, b=20)
 )
 st.plotly_chart(fig, use_container_width=True)
 
-# 6. ALT BİLGİ VE İLETİŞİM
+# --- 6. HAKKIMDA (FOOTER) ---
 st.divider()
-st.subheader("Geliştirici Hakkında")
-st.write("Bu sistem; gerçek zamanlı veri akışlarını teknik analiz indikatörleri ile birleştiren bir karar destek prototipidir.")
-st.link_button("LinkedIn Profilime Git", "https://www.linkedin.com/in/buraksönmez/")
+st.markdown("### 👤 Hakkımda")
+
+col_a, col_b = st.columns(2)
+with col_a:
+    st.markdown("""
+    🎓 **Eğitim Bilgileri**
+    * **Eskişehir Osmangazi Üniversitesi (ESOGÜ)**
+        * Siyaset Bilimi ve Kamu Yönetimi
+    * **Anadolu Üniversitesi (AÖF)**
+        * Yönetim Bilişim Sistemleri (YBS)
+    """)
+
+with col_b:
+    st.markdown("""
+    📧 **İletişim & Sosyal**
+    * **E-posta:** sonmezburak2007@gmail.com
+    * **LinkedIn:** [Profilime Git](https://www.linkedin.com/in/buraksönmez/)
+    """)
+
+st.caption("© 2026 Burak Sönmez - Finansal Takip ve Analiz Portalı")
+
+# --- 7. OTOMATİK YENİLEME ---
+time.sleep(1)
+st.rerun()
